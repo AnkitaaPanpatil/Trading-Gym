@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Gym — Institutional-Grade Financial Simulator & AI Coach</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        obsidian: {
+                            950: '#07090e',
+                            900: '#0b0f17',
+                            850: '#101622',
+                            800: '#161f30',
+                            700: '#222f46',
+                            600: '#334460'
+                        },
+                        bull: {
+                            50: '#ecfdf5',
+                            400: '#34d399',
+                            500: '#10b981',
+                            600: '#059669',
+                            900: '#064e3b'
+                        },
+                        bear: {
+                            50: '#fef2f2',
+                            400: '#f87171',
+                            500: '#ef4444',
+                            600: '#dc2626',
+                            900: '#7f1d1d'
+                        },
+                        gold: {
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Fira Code', 'Courier New', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+    <style>
+        /* Sleek custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f17;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #222f46;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334460;
+        }
+
+        .ticker-slide {
+            display: inline-block;
+            white-space: nowrap;
+            animation: ticker 32s linear infinite;
+        }
+        @keyframes ticker {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(-50%, 0, 0); }
+        }
+
+        .glow-bull {
+            box-shadow: 0 0 15px -3px rgba(16, 185, 129, 0.4);
+        }
+        .glow-bear {
+            box-shadow: 0 0 15px -3px rgba(239, 68, 68, 0.4);
+        }
+
+        /* Chart Canvas cursor */
+        #priceChartCanvas {
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body class="bg-obsidian-950 text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-gold-500 selection:text-slate-950">
+
+    <!-- Top Live Ticker Ribbon -->
+    <aside class="bg-obsidian-900 border-b border-obsidian-800 text-[11px] font-mono py-1.5 overflow-hidden flex items-center">
+        <div class="px-3 bg-obsidian-950 font-bold text-gold-400 flex items-center gap-1.5 z-10 border-r border-obsidian-800">
+            <span class="w-2 h-2 rounded-full bg-bull-500 animate-pulse"></span>
+            <span>LIVE SIM</span>
+        </div>
+        <div class="flex-1 overflow-hidden relative">
+            <div id="tickerTape" class="ticker-slide flex items-center gap-8 pl-4">
+                <!-- Injected dynamically via JS -->
+            </div>
+        </div>
+        <div class="px-3 bg-obsidian-950 text-slate-400 text-xs hidden md:flex items-center gap-3 z-10 border-l border-obsidian-800">
+            <span>Latency: <strong class="text-bull-400 font-mono">12ms</strong></span>
+            <span>Order Engine: <strong class="text-bull-400">ACTIVE</strong></span>
+        </div>
+    </aside>
+
+    <!-- Main Navigation Header -->
+    <header class="bg-obsidian-900/95 backdrop-blur-md border-b border-obsidian-800 px-4 py-2.5 sticky top-0 z-40">
+        <div class="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-3">
+            
+            <!-- Brand & Tagline -->
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-gold-500 to-amber-300 flex items-center justify-center text-slate-950 font-black text-lg shadow-lg shadow-gold-500/20">
+                    <i class="fa-solid fa-chart-line"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base tracking-tight flex items-center gap-2">
+                        Trading Gym
+                        <span class="text-[10px] uppercase font-mono font-bold bg-gold-500/10 text-gold-400 px-2 py-0.5 rounded border border-gold-500/20">Paper Terminal</span>
+                    </h1>
+                    <p class="text-[10px] text-slate-400">Risk-Free Capital Practice & AI Mentorship</p>
+                </div>
+            </div>
+
+            <!-- Virtual Account Portfolio Metrics -->
+            <div class="flex items-center flex-wrap gap-2 sm:gap-4 bg-obsidian-850 border border-obsidian-700/80 rounded-xl px-3 py-1.5 text-xs font-mono">
+                <div>
+                    <span class="text-[10px] text-slate-400 block">TOTAL EQUITY</span>
+                    <span id="headerTotalEquity" class="font-bold text-slate-100 text-sm">$100,000.00</span>
+                </div>
+                <div class="h-6 w-px bg-obsidian-700"></div>
+                <div>
+                    <span class="text-[10px] text-slate-400 block">AVAILABLE CASH</span>
+                    <span id="headerAvailableCash" class="font-bold text-slate-300 text-sm">$100,000.00</span>
+                </div>
+                <div class="h-6 w-px bg-obsidian-700"></div>
+                <div>
+                    <span class="text-[10px] text-slate-400 block">UNREALIZED P&L</span>
+                    <span id="headerUnrealizedPnL" class="font-bold text-bull-400 text-sm">+$0.00 (0.00%)</span>
+                </div>
+                <div class="h-6 w-px bg-obsidian-700 hidden sm:block"></div>
+                <div class="hidden sm:block">
+                    <span class="text-[10px] text-slate-400 block">WIN RATE</span>
+                    <span id="headerWinRate" class="font-bold text-slate-200 text-sm">0.0%</span>
+                </div>
+            </div>
+
+            <!-- Simulation Controls & Actions -->
+            <div class="flex items-center gap-2">
+                <!-- Market Speed Selector -->
+                <div class="flex items-center bg-obsidian-850 border border-obsidian-700 rounded-lg p-0.5 text-xs">
+                    <button onclick="setSimSpeed(0)" id="speedBtn_0" class="px-2 py-1 rounded text-slate-400 hover:text-white" title="Pause simulation">
+                        <i class="fa-solid fa-pause"></i>
+                    </button>
+                    <button onclick="setSimSpeed(1)" id="speedBtn_1" class="px-2 py-1 rounded bg-obsidian-700 text-gold-400 font-mono font-bold" title="Normal 1x speed">
+                        1x
+                    </button>
+                    <button onclick="setSimSpeed(3)" id="speedBtn_3" class="px-2 py-1 rounded text-slate-400 hover:text-white font-mono" title="3x fast speed">
+                        3x
+                    </button>
+                    <button onclick="setSimSpeed(5)" id="speedBtn_5" class="px-2 py-1 rounded text-slate-400 hover:text-white font-mono" title="5x hyper speed">
+                        5x
+                    </button>
+                </div>
+
+                <!-- Scenario Stress Replay Dropdown -->
+                <select id="scenarioSelector" onchange="loadScenario(this.value)" class="bg-obsidian-850 text-slate-200 border border-obsidian-700 rounded-lg px-2.5 py-1.5 text-xs focus:border-gold-500 focus:outline-none cursor-pointer">
+                    <option value="live">Normal Market Flow</option>
+                    <option value="bull_run">Scenario: 2023 AI Momentum Surge</option>
+                    <option value="flash_crash">Scenario: 2020 Flash Liquidity Dump</option>
+                    <option value="choppy_range">Scenario: Range-Bound Consolidation</option>
+                </select>
+
+                <!-- Reset Account Button -->
+                <button onclick="resetAccountModal()" class="px-3 py-1.5 bg-obsidian-800 hover:bg-obsidian-700 border border-obsidian-700 text-slate-300 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
+                    <span class="hidden md:inline">Reset $100K</span>
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-[1920px] w-full mx-auto p-2 sm:p-3 grid grid-cols-1 lg:grid-cols-12 gap-2.5">
+        
+        <!-- Left Sidebar: Market Watch & Screener (2.5 Cols on Large) -->
+        <aside class="lg:col-span-3 xl:col-span-2 flex flex-col space-y-2.5">
+            
+            <!-- Asset Category Filter Tabs -->
+            <div class="bg-obsidian-900 border border-obsidian-800 rounded-xl p-2 flex flex-col space-y-2">
+                <div class="flex items-center justify-between px-1">
+                    <span class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-list-ul text-gold-400"></i> Market Watch
+                    </span>
+                    <span class="text-[10px] text-slate-400 font-mono" id="marketWatchCount">6 Pairs</span>
+                </div>
+
+                <div class="grid grid-cols-3 gap-1 text-[11px] font-semibold">
+                    <button onclick="filterWatchlist('all')" id="tabWatch_all" class="py-1 px-1.5 rounded bg-obsidian-800 text-gold-400 text-center">All</button>
+                    <button onclick="filterWatchlist('stocks')" id="tabWatch_stocks" class="py-1 px-1.5 rounded bg-obsidian-850 hover:bg-obsidian-800 text-slate-400 hover:text-slate-200 text-center">Tech</button>
+                    <button onclick="filterWatchlist('crypto')" id="tabWatch_crypto" class="py-1 px-1.5 rounded bg-obsidian-850 hover:bg-obsidian-800 text-slate-400 hover:text-slate-200 text-center">Crypto</button>
+                </div>
+            </div>
+
+            <!-- Watchlist Asset Rows -->
+            <div id="watchlistContainer" class="bg-obsidian-900 border border-obsidian-800 rounded-xl divide-y divide-obsidian-800/60 overflow-y-auto max-h-[600px] flex-1">
+                <!-- Dynamically populated via JS -->
+            </div>
+
+            <!-- Mini Market Mood / Fear & Greed Index Widget -->
+            <div class="bg-obsidian-900 border border-obsidian-800 rounded-xl p-3 space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                    <span class="font-bold text-slate-300"><i class="fa-solid fa-gauge-high text-gold-400 mr-1"></i> Sentiment Index</span>
+                    <span id="sentimentLabel" class="font-bold font-mono text-bull-400">GREED (68)</span>
+                </div>
+                <div class="w-full bg-obsidian-800 h-2 rounded-full overflow-hidden">
+                    <div id="sentimentBar" class="bg-gradient-to-r from-bear-500 via-gold-500 to-bull-500 h-full w-[68%] transition-all duration-500"></div>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-tight">
+                    Momentum favors buyer breakouts. Keep tighter trailing stops on extended rallies.
+                </p>
+            </div>
+
+        </aside>
+
+        <!-- Center Stage: Charting Terminal & Order Executions (6.5 Cols) -->
+        <section class="lg:col-span-6 xl:col-span-7 flex flex-col space-y-2.5">
+            
+            <!-- Asset Header Bar -->
+            <div class="bg-obsidian-900 border border-obsidian-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div id="activeAssetIcon" class="w-10 h-10 rounded-xl bg-obsidian-800 border border-obsidian-700 flex items-center justify-center text-lg font-bold text-gold-400">
+                        NVDA
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 id="activeAssetTitle" class="text-base font-bold text-white tracking-wide">NVIDIA Corp.</h2>
+                            <span id="activeAssetBadge" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-obsidian-800 text-slate-300">NASDAQ: NVDA</span>
+                        </div>
+                        <div class="flex items-center gap-3 font-mono text-xs">
+                            <span id="activeAssetPrice" class="text-lg font-bold text-bull-400">$128.45</span>
+                            <span id="activeAssetDelta" class="text-bull-400 font-semibold">+3.42% (+$4.25)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- High / Low / Volume Stats -->
+                <div class="hidden sm:flex items-center gap-4 text-xs font-mono border-l border-obsidian-800 pl-4">
+                    <div>
+                        <span class="text-[10px] text-slate-400 block">24H HIGH</span>
+                        <span id="activeAssetHigh" class="text-slate-200 font-semibold">$131.20</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-400 block">24H LOW</span>
+                        <span id="activeAssetLow" class="text-slate-200 font-semibold">$124.10</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-400 block">SIM VOL</span>
+                        <span id="activeAssetVol" class="text-slate-200 font-semibold">4.82M</span>
+                    </div>
+                </div>
+
+                <!-- Chart Technical Toolbars -->
+                <div class="flex items-center gap-1.5 text-xs">
+                    <div class="flex items-center bg-obsidian-850 border border-obsidian-750 rounded-lg p-0.5 font-mono">
+                        <button onclick="setChartType('candles')" id="chartTypeCandles" class="px-2 py-1 rounded bg-obsidian-700 text-gold-400 text-xs" title="Candlestick View">
+                            <i class="fa-solid fa-chart-candlestick"></i>
+                        </button>
+                        <button onclick="setChartType('line')" id="chartTypeLine" class="px-2 py-1 rounded text-slate-400 hover:text-white text-xs" title="Line Chart">
+                            <i class="fa-solid fa-chart-line"></i>
+                        </button>
+                    </div>
+
+                    <!-- Indicators Toggle -->
+                    <button onclick="toggleIndicator('ma20')" id="btnIndicatorMA" class="px-2.5 py-1 bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-700 rounded-lg text-xs font-mono text-gold-400" title="Toggle 20-period Moving Average">
+                        MA(20)
+                    </button>
+                    <button onclick="toggleIndicator('rsi')" id="btnIndicatorRSI" class="px-2.5 py-1 bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-700 rounded-lg text-xs font-mono text-slate-400" title="Toggle RSI indicator panel">
+                        RSI(14)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Candlestick & Volume Chart Canvas Container -->
+            <div class="bg-obsidian-900 border border-obsidian-800 rounded-xl p-2 relative flex-1 flex flex-col min-h-[380px] lg:min-h-[440px]">
+                
+                <!-- Crosshair overlay tooltips -->
+                <div id="chartTooltip" class="absolute top-4 left-4 z-20 bg-obsidian-950/90 backdrop-blur-md border border-obsidian-700 px-3 py-1.5 rounded-lg text-[11px] font-mono text-slate-300 hidden pointer-events-none shadow-xl">
+                    <!-- O, H, L, C, Volume readout -->
+                </div>
+
+                <!-- Live Price Watermark -->
+                <div class="absolute right-4 bottom-14 z-10 pointer-events-none text-right opacity-20">
+                    <span id="canvasWatermarkSymbol" class="text-5xl font-black font-mono tracking-widest text-slate-500">NVDA</span>
+                </div>
+
+                <!-- Primary Chart Canvas -->
+                <div class="flex-1 relative w-full h-full">
+                    <canvas id="priceChartCanvas" class="w-full h-full block rounded-lg"></canvas>
+                </div>
+
+                <!-- Time Axis / Bar Info Footer -->
+                <div class="mt-2 pt-1 border-t border-obsidian-800/80 flex items-center justify-between text-[10px] font-mono text-slate-400">
+                    <div class="flex items-center gap-3">
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-bull-500 inline-block"></span> Bullish Candle</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-bear-500 inline-block"></span> Bearish Candle</span>
+                        <span class="flex items-center gap-1 text-gold-400"><span class="w-3 h-0.5 bg-gold-400 inline-block"></span> MA(20)</span>
+                    </div>
+                    <div id="chartTimeframeLabel">1-Minute Live Interval</div>
+                </div>
+            </div>
+
+            <!-- Active Positions & History Tabs -->
+            <div class="bg-obsidian-900 border border-obsidian-800 rounded-xl p-3 flex flex-col space-y-2">
+                <div class="flex items-center justify-between border-b border-obsidian-800 pb-2">
+                    <div class="flex items-center gap-3">
+                        <button onclick="switchPositionTab('open')" id="tabOpenPositions" class="text-xs font-bold text-gold-400 border-b-2 border-gold-400 pb-1 flex items-center gap-1.5">
+                            <i class="fa-solid fa-briefcase"></i>
+                            <span>Open Positions</span>
+                            <span id="openPositionsBadge" class="bg-obsidian-800 px-1.5 py-0.2 rounded-full text-[10px] text-slate-300">0</span>
+                        </button>
+                        <button onclick="switchPositionTab('history')" id="tabTradeHistory" class="text-xs font-semibold text-slate-400 hover:text-slate-200 pb-1 flex items-center gap-1.5">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            <span>Trade Log</span>
+                            <span id="tradeHistoryBadge" class="bg-obsidian-800 px-1.5 py-0.2 rounded-full text-[10px] text-slate-400">0</span>
+                        </button>
+                    </div>
+
+                    <button onclick="closeAllPositions()" class="text-[11px] text-bear-400 hover:text-bear-300 font-mono font-semibold transition" title="Close all open risk">
+                        Market Close All
+                    </button>
+                </div>
+
+                <!-- Table Content Container -->
+                <div class="overflow-x-auto min-h-[120px] max-h-[160px] overflow-y-auto">
+                    <table class="w-full text-left text-xs font-mono">
+                        <thead>
+                            <tr class="text-[10px] text-slate-400 border-b border-obsidian-800/80">
+                                <th class="pb-1.5 font-medium">SYMBOL</th>
+                                <th class="pb-1.5 font-medium">SIDE</th>
+                                <th class="pb-1.5 font-medium">QTY</th>
+                                <th class="pb-1.5 font-medium">AVG ENTRY</th>
+                                <th class="pb-1.5 font-medium">CURRENT</th>
+                                <th class="pb-1.5 font-medium">UNREALIZED P&L</th>
+                                <th class="pb-1.5 font-medium text-right">ACTION</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positionsTableBody" class="divide-y divide-obsidian-850">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                    
+                    <div id="noPositionsNotice" class="py-6 text-center text-xs text-slate-500 font-mono">
+                        No active market positions. Place a Buy or Sell order to start practicing.
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Right Column: Order Entry & AI Trading Mentor (3 Cols) -->
+        <aside class="lg:col-span-3 xl:col-span-3 flex flex-col space-y-2.5">
+            
+            <!-- Order Ticket Box -->
+            <div class="bg-obsidian-900 border border-obsidian-800 rounded-xl p-4 shadow-xl flex flex-col space-y-3">
+                
+                <div class="flex items-center justify-between border-b border-obsidian-800 pb-2">
+                    <h3 class="text-xs font-bold text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-bolt text-gold-400"></i> Execution Ticket
+                    </h3>
+                    <span id="ticketSymbol" class="text-xs font-mono font-bold text-slate-300">NVDA</span>
+                </div>
+
+                <!-- Side Selector: BUY (Long) vs SELL (Short) -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="setOrderSide('buy')" id="btnOrderSideBuy" class="py-2.5 rounded-xl font-bold text-xs font-mono bg-bull-600 text-white shadow-lg shadow-bull-600/20 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-arrow-trend-up"></i>
+                        <span>BUY / LONG</span>
+                    </button>
+                    <button onclick="setOrderSide('sell')" id="btnOrderSideSell" class="py-2.5 rounded-xl font-bold text-xs font-mono bg-obsidian-850 text-slate-400 hover:text-bear-400 hover:bg-obsidian-800 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-arrow-trend-down"></i>
+                        <span>SELL / SHORT</span>
+                    </button>
+                </div>
+
+                <!-- Order Type (Market vs Limit) -->
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-1">Order Type</label>
+                        <select id="orderTypeSelect" onchange="toggleLimitPriceInput()" class="w-full bg-obsidian-850 border border-obsidian-700 rounded-lg p-2 text-slate-200 font-mono text-xs focus:border-gold-500 focus:outline-none">
+                            <option value="market">Market (Instant)</option>
+                            <option value="limit">Limit Order</option>
+                        </select>
+                    </div>
+                    <div id="limitPriceWrapper" class="hidden">
+                        <label class="block text-[10px] text-slate-400 mb-1">Limit Price</label>
+                        <input type="number" id="orderLimitPrice" step="0.01" class="w-full bg-obsidian-850 border border-obsidian-700 rounded-lg p-2 text-slate-200 font-mono text-xs focus:border-gold-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Quantity & Leverage Input -->
+                <div>
+                    <div class="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                        <span>Quantity (Shares/Units)</span>
+                        <span id="maxSharesLabel" class="text-gold-400 cursor-pointer font-mono" onclick="setMaxQuantity()">Max: 778</span>
+                    </div>
+                    <div class="relative">
+                        <input type="number" id="orderQuantity" value="10" min="1" step="1" oninput="calculateOrderEstValue()" class="w-full bg-obsidian-850 border border-obsidian-700 rounded-lg p-2 text-slate-100 font-mono text-sm focus:border-gold-500 focus:outline-none">
+                        <div class="absolute right-2 top-2 flex gap-1">
+                            <button onclick="setPercentQuantity(0.25)" class="px-1.5 py-0.5 rounded bg-obsidian-800 text-[10px] text-slate-300 font-mono hover:text-white">25%</button>
+                            <button onclick="setPercentQuantity(0.50)" class="px-1.5 py-0.5 rounded bg-obsidian-800 text-[10px] text-slate-300 font-mono hover:text-white">50%</button>
+                            <button onclick="setPercentQuantity(1.00)" class="px-1.5 py-0.5 rounded bg-obsidian-800 text-[10px] text-slate-300 font-mono hover:text-white">100%</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stop-Loss and Take-Profit Bracket Setup -->
+                <div class="bg-obsidian-850/80 p-2.5 rounded-xl border border-obsidian-750 space-y-2">
+                    <div class="flex items-center justify-between text-[11px]">
+                        <span class="font-semibold text-slate-300"><i class="fa-solid fa-shield-halved text-gold-400 mr-1"></i> Bracket Protection</span>
+                        <span class="text-[10px] text-slate-400">Risk Manager</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+                        <div>
+                            <label class="block text-[10px] text-bear-400 mb-0.5">Stop-Loss ($)</label>
+                            <input type="number" id="orderStopLoss" placeholder="Optional" step="0.01" class="w-full bg-obsidian-900 border border-obsidian-700 rounded-lg p-1.5 text-xs text-slate-200 focus:border-bear-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-bull-400 mb-0.5">Take-Profit ($)</label>
+                            <input type="number" id="orderTakeProfit" placeholder="Optional" step="0.01" class="w-full bg-obsidian-900 border border-obsidian-700 rounded-lg p-1.5 text-xs text-slate-200 focus:border-bull-500 focus:outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Cost Summary Breakdown -->
+                <div class="space-y-1 text-xs font-mono border-t border-obsidian-800 pt-2 text-slate-400">
+                    <div class="flex justify-between">
+                        <span>Est. Total Order Value:</span>
+                        <span id="orderEstTotal" class="text-slate-100 font-bold">$1,284.50</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Portfolio Risk Alloc:</span>
+                        <span id="orderEstPercent" class="text-gold-400 font-semibold">1.28%</span>
+                    </div>
+                </div>
+
+                <!-- Submit Order Button -->
+                <button onclick="executeOrder()" id="btnSubmitOrder" class="w-full py-3 rounded-xl font-bold font-mono text-sm bg-bull-500 hover:bg-bull-600 text-slate-950 shadow-lg shadow-bull-500/20 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span id="btnSubmitOrderText">SUBMIT MARKET BUY</span>
+                </button>
+            </div>
+
+            <!-- AI Trading Mentor & Technical Analyst (Powered by Gemini) -->
+            <div class="bg-obsidian-900 border border-obsidian-800 rounded-xl p-3.5 shadow-xl flex-1 flex flex-col space-y-3">
+                <div class="flex items-center justify-between border-b border-obsidian-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 rounded-lg bg-gold-500 text-slate-950 flex items-center justify-center text-xs font-black">
+                            <i class="fa-solid fa-brain"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-100">AI Coach "Athena"</h4>
+                            <p class="text-[9px] text-slate-400">Strategy Auditor & Insights</p>
+                        </div>
+                    </div>
+                    <button onclick="requestAiStrategyAudit()" id="btnAiAudit" class="px-2 py-1 rounded bg-obsidian-800 hover:bg-obsidian-700 text-gold-400 text-[10px] font-mono font-semibold border border-obsidian-700 transition flex items-center gap-1">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>Audit Setup</span>
+                    </button>
+                </div>
+
+                <!-- Chat / Insights Bubble Area -->
+                <div id="aiCoachChatHistory" class="flex-1 overflow-y-auto space-y-2 text-xs min-h-[160px] max-h-[220px] p-2 bg-obsidian-950/80 rounded-lg border border-obsidian-800">
+                    <div class="p-2.5 rounded-lg bg-obsidian-900 border border-obsidian-800 text-slate-300 leading-relaxed text-[11px]">
+                        <span class="text-gold-400 font-bold block mb-1">
+                            <i class="fa-solid fa-robot mr-1"></i> Athena's Market Brief:
+                        </span>
+                        Welcome to the floor, Trader! <strong class="text-white" id="aiWelcomeSymbol">NVDA</strong> is currently testing upper resistance. Focus on risk management: never risk more than 1–2% of total capital on a single setup!
+                    </div>
+                </div>
+
+                <!-- Prompt Helper Chips -->
+                <div class="flex items-center gap-1 overflow-x-auto pb-1 text-[10px] text-slate-400 font-mono">
+                    <button onclick="askCoachPrompt('Analyze the current technical breakout on this chart')" class="px-2 py-0.5 rounded bg-obsidian-850 hover:bg-obsidian-800 text-slate-300 border border-obsidian-750 whitespace-nowrap">
+                        📈 Breakout check
+                    </button>
+                    <button onclick="askCoachPrompt('What is the ideal Stop-Loss and Take-Profit for my risk profile?')" class="px-2 py-0.5 rounded bg-obsidian-850 hover:bg-obsidian-800 text-slate-300 border border-obsidian-750 whitespace-nowrap">
+                        🛡️ Risk sizing
+                    </button>
+                </div>
+
+                <!-- AI Query Input Box -->
+                <div class="flex gap-1.5">
+                    <input type="text" id="aiQueryInput" placeholder="Ask Athena about setups, RSI, or risk..." class="flex-1 bg-obsidian-850 border border-obsidian-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-gold-500">
+                    <button onclick="submitAiQuery()" id="btnSendAi" class="px-3 py-1.5 bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold rounded-lg text-xs transition flex items-center justify-center">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+
+        </aside>
+
+    </main>
+
+    <!-- Reset Account Confirmation Modal -->
+    <div id="resetModal" class="fixed inset-0 z-50 bg-obsidian-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-obsidian-900 border border-obsidian-700 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center gap-3 text-gold-400">
+                <div class="w-10 h-10 rounded-xl bg-gold-500/10 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-slate-100 text-base">Reset Simulation Account</h4>
+                    <p class="text-xs text-slate-400">Restore paper balance to $100,000</p>
+                </div>
+            </div>
+            <p class="text-xs text-slate-300">
+                This will liquidate all open positions, clear your trade log, and reset performance metrics.
+            </p>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeResetModal()" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
+                <button onclick="confirmResetAccount()" class="px-4 py-2 bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold rounded-lg text-xs">Reset to $100K</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Senior Trading Toast Notification -->
+    <div id="tradeToast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 max-w-sm bg-obsidian-900 border border-obsidian-700 p-3.5 rounded-xl shadow-2xl flex items-center gap-3">
+        <div id="toastIcon" class="w-8 h-8 rounded-lg bg-bull-500/20 text-bull-400 flex items-center justify-center text-base flex-shrink-0">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <div class="flex-1 text-xs">
+            <div id="toastTitle" class="font-bold text-slate-100">Order Executed</div>
+            <div id="toastDesc" class="text-slate-400 text-[11px]">Filled 10 NVDA @ $128.45</div>
+        </div>
+        <button onclick="hideToast()" class="text-slate-500 hover:text-slate-300">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    <script>
+        // Assets Database with realistic base values and volatility parameters
+        const ASSETS = [
+            {
+                symbol: 'NVDA',
+                name: 'NVIDIA Corp.',
+                category: 'stocks',
+                basePrice: 128.45,
+                volatility: 0.0035,
+                drift: 0.0003,
+                type: 'Stock',
+                high24: 131.20,
+                low24: 124.10,
+                volume: '4.82M',
+                decimals: 2
+            },
+            {
+                symbol: 'AAPL',
+                name: 'Apple Inc.',
+                category: 'stocks',
+                basePrice: 224.80,
+                volatility: 0.0018,
+                drift: 0.0001,
+                type: 'Stock',
+                high24: 227.10,
+                low24: 222.90,
+                volume: '3.12M',
+                decimals: 2
+            },
+            {
+                symbol: 'TSLA',
+                name: 'Tesla Inc.',
+                category: 'stocks',
+                basePrice: 242.30,
+                volatility: 0.0055,
+                drift: -0.0002,
+                type: 'Stock',
+                high24: 249.80,
+                low24: 236.40,
+                volume: '6.45M',
+                decimals: 2
+            },
+            {
+                symbol: 'BTC/USD',
+                name: 'Bitcoin',
+                category: 'crypto',
+                basePrice: 63420.00,
+                volatility: 0.0042,
+                drift: 0.0004,
+                type: 'Crypto',
+                high24: 64500.00,
+                low24: 62100.00,
+                volume: '$1.4B',
+                decimals: 2
+            },
+            {
+                symbol: 'ETH/USD',
+                name: 'Ethereum',
+                category: 'crypto',
+                basePrice: 2650.40,
+                volatility: 0.0048,
+                drift: 0.0002,
+                type: 'Crypto',
+                high24: 2710.00,
+                low24: 2580.00,
+                volume: '$680M',
+                decimals: 2
+            },
+            {
+                symbol: 'GOLD',
+                name: 'Gold Spot',
+                category: 'stocks',
+                basePrice: 2640.50,
+                volatility: 0.0012,
+                drift: 0.0001,
+                type: 'Commodity',
+                high24: 2655.00,
+                low24: 2632.00,
+                volume: '220K oz',
+                decimals: 2
+            }
+        ];
+
+        // Central Simulator State
+        let simState = {
+            activeSymbol: 'NVDA',
+            speed: 1, // 0 = pause, 1 = normal, 3 = fast, 5 = hyper
+            activeScenario: 'live',
+            cash: 100000.00,
+            equity: 100000.00,
+            positions: [], // { id, symbol, side: 'buy'|'sell', qty, entryPrice, stopLoss, takeProfit }
+            tradeHistory: [], // { id, symbol, side, qty, entryPrice, exitPrice, pnl, timestamp }
+            orderSide: 'buy',
+            chartType: 'candles', // 'candles' or 'line'
+            indicators: {
+                ma20: true,
+                rsi: false
+            },
+            candleHistory: {}, // symbol -> array of { time, open, high, low, close, volume }
+            activeCategory: 'all'
+        };
+
+        let simInterval = null;
+
+        // Initialize candle history for each asset
+        function initializeCandleData() {
+            const now = Date.now();
+            ASSETS.forEach(asset => {
+                const history = [];
+                let currentClose = asset.basePrice;
+                const candleCount = 65;
+
+                for (let i = candleCount; i >= 0; i--) {
+                    const time = new Date(now - i * 60000);
+                    const delta = (Math.random() - 0.49) * (asset.basePrice * asset.volatility * 2.5);
+                    const open = currentClose;
+                    const close = Math.max(open + delta, asset.basePrice * 0.5);
+                    const high = Math.max(open, close) + Math.random() * (asset.basePrice * asset.volatility);
+                    const low = Math.min(open, close) - Math.random() * (asset.basePrice * asset.volatility);
+                    const volume = Math.floor(Math.random() * 5000 + 1000);
+
+                    history.push({ time, open, high, low, close, volume });
+                    currentClose = close;
+                }
+                simState.candleHistory[asset.symbol] = history;
+            });
+        }
+
+        // Setup on DOM load
+        window.addEventListener('DOMContentLoaded', () => {
+            initializeCandleData();
+            renderWatchlist();
+            renderTickerTape();
+            updateActiveAssetHeader();
+            updatePortfolioMetrics();
+            initChartCanvas();
+            startSimLoop();
+            calculateOrderEstValue();
+
+            // Handle window resizing
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+                drawChart();
+            });
+        });
+
+        let canvas = null;
+        let ctx = null;
+
+        function initChartCanvas() {
+            canvas = document.getElementById('priceChartCanvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+            setupChartInteractivity();
+            drawChart();
+        }
+
+        function resizeCanvas() {
+            if (!canvas) return;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+        }
+
+        function getActiveHistory() {
+            return simState.candleHistory[simState.activeSymbol] || [];
+        }
+
+        function drawChart() {
+            if (!ctx || !canvas) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const width = rect.width;
+            const height = rect.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const candles = getActiveHistory();
+            if (candles.length === 0) return;
+
+            // Calculate min/max price
+            let minPrice = Infinity;
+            let maxPrice = -Infinity;
+            let maxVol = 0;
+
+            candles.forEach(c => {
+                if (c.low < minPrice) minPrice = c.low;
+                if (c.high > maxPrice) maxPrice = c.high;
+                if (c.volume > maxVol) maxVol = c.volume;
+            });
+
+            // Add margin to price scale
+            const pricePadding = (maxPrice - minPrice) * 0.1 || 1;
+            minPrice -= pricePadding;
+            maxPrice += pricePadding;
+            const priceRange = maxPrice - minPrice;
+
+            // Reserve bottom 20% for volume
+            const chartHeight = height * 0.78;
+            const volHeight = height * 0.18;
+            const volBaseY = height - 10;
+
+            // Coordinate Mappers
+            const getY = (val) => chartHeight - ((val - minPrice) / priceRange) * chartHeight + 10;
+            const getX = (idx, total) => (width - 60) * (idx / (total - 1)) + 15;
+
+            // 1. Draw Grid Lines & Horizontal Price Levels
+            ctx.strokeStyle = 'rgba(34, 47, 70, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.font = '10px JetBrains Mono';
+            ctx.fillStyle = '#64748b';
+
+            const gridSteps = 5;
+            for (let i = 0; i <= gridSteps; i++) {
+                const p = minPrice + (priceRange * (i / gridSteps));
+                const y = getY(p);
+
+                ctx.beginPath();
+                ctx.moveTo(10, y);
+                ctx.lineTo(width - 55, y);
+                ctx.stroke();
+
+                // Price label on right axis
+                ctx.fillText(p.toFixed(2), width - 50, y + 3);
+            }
+
+            // 2. Draw Moving Average (MA 20)
+            if (simState.indicators.ma20 && candles.length >= 20) {
+                ctx.strokeStyle = '#fbbf24'; // Gold
+                ctx.lineWidth = 1.75;
+                ctx.beginPath();
+
+                for (let i = 19; i < candles.length; i++) {
+                    let sum = 0;
+                    for (let j = 0; j < 20; j++) {
+                        sum += candles[i - j].close;
+                    }
+                    const ma = sum / 20;
+                    const x = getX(i, candles.length);
+                    const y = getY(ma);
+
+                    if (i === 19) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+
+            // 3. Draw Candlesticks or Line Chart
+            const candleWidth = Math.max(3, (width - 70) / candles.length * 0.7);
+
+            if (simState.chartType === 'candles') {
+                candles.forEach((c, idx) => {
+                    const x = getX(idx, candles.length);
+                    const isBull = c.close >= c.open;
+                    const color = isBull ? '#10b981' : '#ef4444';
+
+                    // Wick
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 1.2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, getY(c.high));
+                    ctx.lineTo(x, getY(c.low));
+                    ctx.stroke();
+
+                    // Body
+                    ctx.fillStyle = color;
+                    const openY = getY(c.open);
+                    const closeY = getY(c.close);
+                    const bodyY = Math.min(openY, closeY);
+                    const bodyH = Math.max(2, Math.abs(closeY - openY));
+
+                    ctx.fillRect(x - candleWidth / 2, bodyY, candleWidth, bodyH);
+
+                    // Volume Bar at Bottom
+                    const volBarH = (c.volume / maxVol) * volHeight;
+                    ctx.fillStyle = isBull ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)';
+                    ctx.fillRect(x - candleWidth / 2, volBaseY - volBarH, candleWidth, volBarH);
+                });
+            } else {
+                // Line Chart
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                candles.forEach((c, idx) => {
+                    const x = getX(idx, candles.length);
+                    const y = getY(c.close);
+                    if (idx === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+
+                // Area Fill under line
+                ctx.lineTo(getX(candles.length - 1, candles.length), chartHeight + 10);
+                ctx.lineTo(getX(0, candles.length), chartHeight + 10);
+                ctx.closePath();
+                const grad = ctx.createLinearGradient(0, 0, 0, chartHeight);
+                grad.addColorStop(0, 'rgba(56, 189, 248, 0.2)');
+                grad.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
+                ctx.fillStyle = grad;
+                ctx.fill();
+            }
+
+            // 4. Highlight Open Position Entry Lines on Chart
+            simState.positions.forEach(pos => {
+                if (pos.symbol === simState.activeSymbol) {
+                    const entryY = getY(pos.entryPrice);
+                    ctx.strokeStyle = pos.side === 'buy' ? '#10b981' : '#ef4444';
+                    ctx.lineWidth = 1.2;
+                    ctx.setLineDash([4, 4]);
+
+                    ctx.beginPath();
+                    ctx.moveTo(10, entryY);
+                    ctx.lineTo(width - 55, entryY);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    // Entry badge
+                    ctx.fillStyle = pos.side === 'buy' ? '#064e3b' : '#7f1d1d';
+                    ctx.fillRect(width - 55, entryY - 8, 50, 16);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(`${pos.side.toUpperCase()} ${pos.qty}`, width - 52, entryY + 4);
+                }
+            });
+        }
+
+        function setupChartInteractivity() {
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                const candles = getActiveHistory();
+                if (candles.length === 0) return;
+
+                const idx = Math.min(
+                    candles.length - 1,
+                    Math.max(0, Math.floor((mouseX - 15) / ((rect.width - 60) / (candles.length - 1))))
+                );
+                const c = candles[idx];
+                if (!c) return;
+
+                const tooltip = document.getElementById('chartTooltip');
+                tooltip.classList.remove('hidden');
+                tooltip.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-slate-400">O:</span> <strong class="text-white">${c.open.toFixed(2)}</strong>
+                        <span class="text-slate-400">H:</span> <strong class="text-bull-400">${c.high.toFixed(2)}</strong>
+                        <span class="text-slate-400">L:</span> <strong class="text-bear-400">${c.low.toFixed(2)}</strong>
+                        <span class="text-slate-400">C:</span> <strong class="text-white">${c.close.toFixed(2)}</strong>
+                        <span class="text-slate-400">V:</span> <strong class="text-gold-400">${c.volume}</strong>
+                    </div>
+                `;
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                document.getElementById('chartTooltip').classList.add('hidden');
+            });
+        }
+
+        function startSimLoop() {
+            if (simInterval) clearInterval(simInterval);
+
+            simInterval = setInterval(() => {
+                if (simState.speed === 0) return; // Paused
+
+                // Tick each asset
+                ASSETS.forEach(asset => {
+                    const candles = simState.candleHistory[asset.symbol];
+                    if (!candles || candles.length === 0) return;
+
+                    const lastCandle = candles[candles.length - 1];
+                    let shock = 0;
+
+                    // Apply scenario bias
+                    if (simState.activeScenario === 'bull_run') {
+                        shock = 0.0015;
+                    } else if (simState.activeScenario === 'flash_crash') {
+                        shock = -0.0035;
+                    }
+
+                    const pctChange = (Math.random() - 0.495 + asset.drift + shock) * asset.volatility;
+                    const newClose = Math.max(1.0, lastCandle.close * (1 + pctChange));
+
+                    lastCandle.close = newClose;
+                    if (newClose > lastCandle.high) lastCandle.high = newClose;
+                    if (newClose < lastCandle.low) lastCandle.low = newClose;
+                    lastCandle.volume += Math.floor(Math.random() * 80 + 10);
+                });
+
+                // Periodically push new minute bar (every ~20 ticks at 1x)
+                if (Math.random() < 0.05 * simState.speed) {
+                    ASSETS.forEach(asset => {
+                        const candles = simState.candleHistory[asset.symbol];
+                        const last = candles[candles.length - 1];
+                        candles.shift(); // keep fixed window
+                        candles.push({
+                            time: new Date(),
+                            open: last.close,
+                            high: last.close,
+                            low: last.close,
+                            close: last.close,
+                            volume: 50
+                        });
+                    });
+                }
+
+                // Check Stop-Loss & Take-Profit triggers for open positions
+                checkBracketTriggers();
+
+                // Update UI elements
+                updateActiveAssetHeader();
+                renderWatchlist();
+                updatePortfolioMetrics();
+                drawChart();
+
+            }, 600 / simState.speed);
+        }
+
+        function checkBracketTriggers() {
+            simState.positions.forEach((pos, index) => {
+                const asset = ASSETS.find(a => a.symbol === pos.symbol);
+                if (!asset) return;
+
+                const candles = simState.candleHistory[pos.symbol];
+                const currentPrice = candles[candles.length - 1].close;
+
+                // Stop-loss check
+                if (pos.stopLoss) {
+                    const hitStop = pos.side === 'buy' ? currentPrice <= pos.stopLoss : currentPrice >= pos.stopLoss;
+                    if (hitStop) {
+                        closeSinglePosition(pos.id, 'Stop-Loss Hit');
+                        return;
+                    }
+                }
+
+                // Take-profit check
+                if (pos.takeProfit) {
+                    const hitTP = pos.side === 'buy' ? currentPrice >= pos.takeProfit : currentPrice <= pos.takeProfit;
+                    if (hitTP) {
+                        closeSinglePosition(pos.id, 'Take-Profit Reached');
+                        return;
+                    }
+                }
+            });
+        }
+
+        function setSimSpeed(speed) {
+            simState.speed = speed;
+            [0, 1, 3, 5].forEach(s => {
+                const btn = document.getElementById(`speedBtn_${s}`);
+                if (s === speed) {
+                    btn.className = "px-2 py-1 rounded bg-obsidian-700 text-gold-400 font-mono font-bold";
+                } else {
+                    btn.className = "px-2 py-1 rounded text-slate-400 hover:text-white font-mono";
+                }
+            });
+
+            if (speed > 0) startSimLoop();
+            showToast(`Simulation Speed: ${speed === 0 ? 'PAUSED' : speed + 'x'}`, 'fa-gauge');
+        }
+
+        function loadScenario(scenario) {
+            simState.activeScenario = scenario;
+            if (scenario === 'flash_crash') {
+                showToast("Scenario Active: Flash Liquidity Crash", "fa-triangle-exclamation");
+            } else if (scenario === 'bull_run') {
+                showToast("Scenario Active: Bull Momentum Rally", "fa-rocket");
+            } else {
+                showToast("Standard Market Dynamic Loaded", "fa-check");
+            }
+        }
+
+        function renderWatchlist() {
+            const container = document.getElementById('watchlistContainer');
+            if (!container) return;
+
+            const filtered = simState.activeCategory === 'all'
+                ? ASSETS
+                : ASSETS.filter(a => a.category === simState.activeCategory);
+
+            container.innerHTML = '';
+            filtered.forEach(asset => {
+                const candles = simState.candleHistory[asset.symbol];
+                const current = candles ? candles[candles.length - 1].close : asset.basePrice;
+                const first = candles ? candles[0].open : asset.basePrice;
+                const changePct = ((current - first) / first) * 100;
+                const isBull = changePct >= 0;
+                const isSelected = asset.symbol === simState.activeSymbol;
+
+                const item = document.createElement('div');
+                item.className = `p-2.5 cursor-pointer transition flex items-center justify-between ${
+                    isSelected ? 'bg-obsidian-800 border-l-2 border-gold-400' : 'hover:bg-obsidian-850'
+                }`;
+                item.onclick = () => selectActiveAsset(asset.symbol);
+
+                item.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <div class="font-bold text-xs ${isSelected ? 'text-gold-400' : 'text-slate-200'}">${asset.symbol}</div>
+                        <span class="text-[9px] px-1 rounded bg-obsidian-800 text-slate-400 font-mono">${asset.type}</span>
+                    </div>
+                    <div class="text-right font-mono">
+                        <div class="text-xs font-bold text-slate-100">$${current.toFixed(asset.decimals)}</div>
+                        <div class="text-[10px] font-semibold ${isBull ? 'text-bull-400' : 'text-bear-400'}">
+                            ${isBull ? '+' : ''}${changePct.toFixed(2)}%
+                        </div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function renderTickerTape() {
+            const tape = document.getElementById('tickerTape');
+            if (!tape) return;
+
+            let html = '';
+            // Duplicate array for infinite ticker effect
+            const list = [...ASSETS, ...ASSETS];
+            list.forEach(asset => {
+                const candles = simState.candleHistory[asset.symbol];
+                const current = candles ? candles[candles.length - 1].close : asset.basePrice;
+                html += `
+                    <div class="inline-flex items-center gap-1.5 cursor-pointer hover:text-gold-400" onclick="selectActiveAsset('${asset.symbol}')">
+                        <span class="font-bold text-slate-300">${asset.symbol}</span>
+                        <span class="text-slate-100">$${current.toFixed(asset.decimals)}</span>
+                        <span class="text-bull-400 text-[10px]">▲</span>
+                    </div>
+                `;
+            });
+            tape.innerHTML = html;
+        }
+
+        function filterWatchlist(cat) {
+            simState.activeCategory = cat;
+            ['all', 'stocks', 'crypto'].forEach(c => {
+                const btn = document.getElementById(`tabWatch_${c}`);
+                if (c === cat) btn.className = "py-1 px-1.5 rounded bg-obsidian-800 text-gold-400 text-center";
+                else btn.className = "py-1 px-1.5 rounded bg-obsidian-850 hover:bg-obsidian-800 text-slate-400 hover:text-slate-200 text-center";
+            });
+            renderWatchlist();
+        }
+
+        function selectActiveAsset(sym) {
+            simState.activeSymbol = sym;
+            document.getElementById('ticketSymbol').textContent = sym;
+            document.getElementById('canvasWatermarkSymbol').textContent = sym;
+            document.getElementById('aiWelcomeSymbol').textContent = sym;
+            updateActiveAssetHeader();
+            renderWatchlist();
+            calculateOrderEstValue();
+            drawChart();
+        }
+
+        function updateActiveAssetHeader() {
+            const asset = ASSETS.find(a => a.symbol === simState.activeSymbol);
+            if (!asset) return;
+
+            const candles = simState.candleHistory[asset.symbol];
+            if (!candles || candles.length === 0) return;
+
+            const current = candles[candles.length - 1].close;
+            const openFirst = candles[0].open;
+            const delta = current - openFirst;
+            const deltaPct = (delta / openFirst) * 100;
+            const isBull = delta >= 0;
+
+            document.getElementById('activeAssetTitle').textContent = asset.name;
+            document.getElementById('activeAssetIcon').textContent = asset.symbol.substring(0, 4);
+            document.getElementById('activeAssetBadge').textContent = `${asset.type.toUpperCase()}: ${asset.symbol}`;
+            
+            const priceEl = document.getElementById('activeAssetPrice');
+            priceEl.textContent = `$${current.toFixed(asset.decimals)}`;
+            priceEl.className = `text-lg font-bold ${isBull ? 'text-bull-400' : 'text-bear-400'}`;
+
+            const deltaEl = document.getElementById('activeAssetDelta');
+            deltaEl.textContent = `${isBull ? '+' : ''}${deltaPct.toFixed(2)}% (${isBull ? '+' : ''}$${delta.toFixed(2)})`;
+            deltaEl.className = `font-semibold ${isBull ? 'text-bull-400' : 'text-bear-400'}`;
+
+            document.getElementById('activeAssetHigh').textContent = `$${asset.high24.toFixed(asset.decimals)}`;
+            document.getElementById('activeAssetLow').textContent = `$${asset.low24.toFixed(asset.decimals)}`;
+            document.getElementById('activeAssetVol').textContent = asset.volume;
+        }
+
+        function setChartType(type) {
+            simState.chartType = type;
+            const bC = document.getElementById('chartTypeCandles');
+            const bL = document.getElementById('chartTypeLine');
+            if (type === 'candles') {
+                bC.className = "px-2 py-1 rounded bg-obsidian-700 text-gold-400 text-xs";
+                bL.className = "px-2 py-1 rounded text-slate-400 hover:text-white text-xs";
+            } else {
+                bL.className = "px-2 py-1 rounded bg-obsidian-700 text-gold-400 text-xs";
+                bC.className = "px-2 py-1 rounded text-slate-400 hover:text-white text-xs";
+            }
+            drawChart();
+        }
+
+        function toggleIndicator(ind) {
+            simState.indicators[ind] = !simState.indicators[ind];
+            const btn = ind === 'ma20' ? document.getElementById('btnIndicatorMA') : document.getElementById('btnIndicatorRSI');
+            if (simState.indicators[ind]) {
+                btn.className = "px-2.5 py-1 bg-obsidian-700 text-gold-400 border border-gold-500/40 rounded-lg text-xs font-mono";
+            } else {
+                btn.className = "px-2.5 py-1 bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-700 rounded-lg text-xs font-mono text-slate-400";
+            }
+            drawChart();
+        }
+
+        function setOrderSide(side) {
+            simState.orderSide = side;
+            const btnB = document.getElementById('btnOrderSideBuy');
+            const btnS = document.getElementById('btnOrderSideSell');
+            const submitBtn = document.getElementById('btnSubmitOrder');
+            const submitText = document.getElementById('btnSubmitOrderText');
+
+            if (side === 'buy') {
+                btnB.className = "py-2.5 rounded-xl font-bold text-xs font-mono bg-bull-600 text-white shadow-lg shadow-bull-600/20 transition flex items-center justify-center gap-2";
+                btnS.className = "py-2.5 rounded-xl font-bold text-xs font-mono bg-obsidian-850 text-slate-400 hover:text-bear-400 hover:bg-obsidian-800 transition flex items-center justify-center gap-2";
+                submitBtn.className = "w-full py-3 rounded-xl font-bold font-mono text-sm bg-bull-500 hover:bg-bull-600 text-slate-950 shadow-lg shadow-bull-500/20 transition flex items-center justify-center gap-2";
+                submitText.textContent = "SUBMIT MARKET BUY (LONG)";
+            } else {
+                btnS.className = "py-2.5 rounded-xl font-bold text-xs font-mono bg-bear-600 text-white shadow-lg shadow-bear-600/20 transition flex items-center justify-center gap-2";
+                btnB.className = "py-2.5 rounded-xl font-bold text-xs font-mono bg-obsidian-850 text-slate-400 hover:text-bull-400 hover:bg-obsidian-800 transition flex items-center justify-center gap-2";
+                submitBtn.className = "w-full py-3 rounded-xl font-bold font-mono text-sm bg-bear-500 hover:bg-bear-600 text-white shadow-lg shadow-bear-500/20 transition flex items-center justify-center gap-2";
+                submitText.textContent = "SUBMIT MARKET SELL (SHORT)";
+            }
+        }
+
+        function toggleLimitPriceInput() {
+            const type = document.getElementById('orderTypeSelect').value;
+            const wrapper = document.getElementById('limitPriceWrapper');
+            if (type === 'limit') {
+                wrapper.classList.remove('hidden');
+                const asset = ASSETS.find(a => a.symbol === simState.activeSymbol);
+                const candles = simState.candleHistory[asset.symbol];
+                document.getElementById('orderLimitPrice').value = candles[candles.length - 1].close.toFixed(2);
+            } else {
+                wrapper.classList.add('hidden');
+            }
+        }
+
+        function calculateOrderEstValue() {
+            const asset = ASSETS.find(a => a.symbol === simState.activeSymbol);
+            if (!asset) return;
+
+            const candles = simState.candleHistory[asset.symbol];
+            const current = candles ? candles[candles.length - 1].close : asset.basePrice;
+            const qty = parseFloat(document.getElementById('orderQuantity').value) || 0;
+            const estVal = current * qty;
+
+            document.getElementById('orderEstTotal').textContent = `$${estVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const pct = simState.equity > 0 ? ((estVal / simState.equity) * 100).toFixed(2) : 0;
+            document.getElementById('orderEstPercent').textContent = `${pct}%`;
+
+            // Update max shares possible
+            const maxShares = Math.floor(simState.cash / current);
+            document.getElementById('maxSharesLabel').textContent = `Max: ${maxShares}`;
+        }
+
+        function setPercentQuantity(pct) {
+            const asset = ASSETS.find(a => a.symbol === simState.activeSymbol);
+            const candles = simState.candleHistory[asset.symbol];
+            const current = candles ? candles[candles.length - 1].close : asset.basePrice;
+            const maxShares = Math.floor(simState.cash / current);
+            const target = Math.max(1, Math.floor(maxShares * pct));
+            document.getElementById('orderQuantity').value = target;
+            calculateOrderEstValue();
+        }
+
+        function setMaxQuantity() {
+            setPercentQuantity(1.0);
+        }
+
+        function executeOrder() {
+            const asset = ASSETS.find(a => a.symbol === simState.activeSymbol);
+            const candles = simState.candleHistory[asset.symbol];
+            const currentPrice = candles[candles.length - 1].close;
+
+            const qty = parseInt(document.getElementById('orderQuantity').value, 10);
+            if (!qty || qty <= 0) {
+                showToast("Please enter a valid positive quantity", "fa-triangle-exclamation");
+                return;
+            }
+
+            const totalCost = currentPrice * qty;
+            if (simState.orderSide === 'buy' && totalCost > simState.cash) {
+                showToast("Insufficient cash reserves for this position", "fa-triangle-exclamation");
+                return;
+            }
+
+            const stopLoss = parseFloat(document.getElementById('orderStopLoss').value) || null;
+            const takeProfit = parseFloat(document.getElementById('orderTakeProfit').value) || null;
+
+            // Deduct available cash
+            simState.cash -= totalCost;
+
+            // Create new position entry
+            const newPos = {
+                id: 'pos_' + Date.now(),
+                symbol: asset.symbol,
+                side: simState.orderSide,
+                qty: qty,
+                entryPrice: currentPrice,
+                stopLoss: stopLoss,
+                takeProfit: takeProfit,
+                timestamp: new Date().toLocaleTimeString()
+            };
+
+            simState.positions.push(newPos);
+            updatePortfolioMetrics();
+            renderPositionsTable();
+            drawChart();
+
+            showToast(`Filled ${qty} ${asset.symbol} @ $${currentPrice.toFixed(asset.decimals)}`, 'fa-check');
+        }
+
+        function closeSinglePosition(posId, reason = 'Market Closed') {
+            const index = simState.positions.findIndex(p => p.id === posId);
+            if (index === -1) return;
+
+            const pos = simState.positions[index];
+            const asset = ASSETS.find(a => a.symbol === pos.symbol);
+            const candles = simState.candleHistory[pos.symbol];
+            const currentPrice = candles[candles.length - 1].close;
+
+            // Calculate PnL
+            let pnl = 0;
+            if (pos.side === 'buy') {
+                pnl = (currentPrice - pos.entryPrice) * pos.qty;
+            } else {
+                pnl = (pos.entryPrice - currentPrice) * pos.qty;
+            }
+
+            // Return invested capital + PnL
+            simState.cash += (pos.entryPrice * pos.qty) + pnl;
+
+            // Log to Trade History
+            simState.tradeHistory.unshift({
+                id: 'tr_' + Date.now(),
+                symbol: pos.symbol,
+                side: pos.side,
+                qty: pos.qty,
+                entryPrice: pos.entryPrice,
+                exitPrice: currentPrice,
+                pnl: pnl,
+                time: new Date().toLocaleTimeString(),
+                reason: reason
+            });
+
+            simState.positions.splice(index, 1);
+            updatePortfolioMetrics();
+            renderPositionsTable();
+            drawChart();
+
+            const pnlFormatted = `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`;
+            showToast(`${reason}: ${pos.symbol} (${pnlFormatted})`, pnl >= 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down');
+        }
+
+        function closeAllPositions() {
+            if (simState.positions.length === 0) {
+                showToast("No active positions to liquidate", "fa-circle-info");
+                return;
+            }
+            while (simState.positions.length > 0) {
+                closeSinglePosition(simState.positions[0].id, 'Manual Full Liquidation');
+            }
+        }
+
+        function updatePortfolioMetrics() {
+            let unrealized = 0;
+
+            simState.positions.forEach(pos => {
+                const asset = ASSETS.find(a => a.symbol === pos.symbol);
+                const candles = simState.candleHistory[pos.symbol];
+                if (candles) {
+                    const current = candles[candles.length - 1].close;
+                    if (pos.side === 'buy') {
+                        unrealized += (current - pos.entryPrice) * pos.qty;
+                    } else {
+                        unrealized += (pos.entryPrice - current) * pos.qty;
+                    }
+                }
+            });
+
+            // Calculate Equity = Cash + Margin Tied + Unrealized
+            let investedMargin = 0;
+            simState.positions.forEach(p => investedMargin += p.entryPrice * p.qty);
+
+            simState.equity = simState.cash + investedMargin + unrealized;
+
+            // Header Elements
+            document.getElementById('headerTotalEquity').textContent = `$${simState.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            document.getElementById('headerAvailableCash').textContent = `$${simState.cash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+            const unPnlEl = document.getElementById('headerUnrealizedPnL');
+            const unPct = ((unrealized / 100000) * 100).toFixed(2);
+            unPnlEl.textContent = `${unrealized >= 0 ? '+' : ''}$${unrealized.toFixed(2)} (${unrealized >= 0 ? '+' : ''}${unPct}%)`;
+            unPnlEl.className = `font-bold text-sm ${unrealized >= 0 ? 'text-bull-400' : 'text-bear-400'}`;
+
+            // Win Rate calculation from history
+            if (simState.tradeHistory.length > 0) {
+                const wins = simState.tradeHistory.filter(t => t.pnl > 0).length;
+                const winRate = ((wins / simState.tradeHistory.length) * 100).toFixed(1);
+                document.getElementById('headerWinRate').textContent = `${winRate}%`;
+            }
+
+            renderPositionsTable();
+        }
+
+        function renderPositionsTable() {
+            const tbody = document.getElementById('positionsTableBody');
+            const notice = document.getElementById('noPositionsNotice');
+            const badge = document.getElementById('openPositionsBadge');
+            badge.textContent = simState.positions.length;
+
+            if (simState.positions.length === 0) {
+                tbody.innerHTML = '';
+                notice.classList.remove('hidden');
+                return;
+            }
+
+            notice.classList.add('hidden');
+            tbody.innerHTML = '';
+
+            simState.positions.forEach(pos => {
+                const asset = ASSETS.find(a => a.symbol === pos.symbol);
+                const candles = simState.candleHistory[pos.symbol];
+                const current = candles[candles.length - 1].close;
+
+                let pnl = pos.side === 'buy'
+                    ? (current - pos.entryPrice) * pos.qty
+                    : (pos.entryPrice - current) * pos.qty;
+                const pnlPct = ((pnl / (pos.entryPrice * pos.qty)) * 100).toFixed(2);
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-obsidian-850/60";
+                tr.innerHTML = `
+                    <td class="py-2 font-bold text-slate-200">${pos.symbol}</td>
+                    <td class="py-2">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] ${pos.side === 'buy' ? 'bg-bull-900/60 text-bull-400' : 'bg-bear-900/60 text-bear-400'}">
+                            ${pos.side.toUpperCase()}
+                        </span>
+                    </td>
+                    <td class="py-2 text-slate-300">${pos.qty}</td>
+                    <td class="py-2 text-slate-300">$${pos.entryPrice.toFixed(asset.decimals)}</td>
+                    <td class="py-2 text-slate-200 font-bold">$${current.toFixed(asset.decimals)}</td>
+                    <td class="py-2 font-bold ${pnl >= 0 ? 'text-bull-400' : 'text-bear-400'}">
+                        ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnl >= 0 ? '+' : ''}${pnlPct}%)
+                    </td>
+                    <td class="py-2 text-right">
+                        <button onclick="closeSinglePosition('${pos.id}')" class="px-2 py-0.5 rounded bg-bear-500/20 hover:bg-bear-500/40 text-bear-400 text-[10px] transition">
+                            Close
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function switchPositionTab(tab) {
+            const btnOpen = document.getElementById('tabOpenPositions');
+            const btnHist = document.getElementById('tabTradeHistory');
+            const tbody = document.getElementById('positionsTableBody');
+            const notice = document.getElementById('noPositionsNotice');
+
+            if (tab === 'open') {
+                btnOpen.className = "text-xs font-bold text-gold-400 border-b-2 border-gold-400 pb-1 flex items-center gap-1.5";
+                btnHist.className = "text-xs font-semibold text-slate-400 hover:text-slate-200 pb-1 flex items-center gap-1.5";
+                renderPositionsTable();
+            } else {
+                btnHist.className = "text-xs font-bold text-gold-400 border-b-2 border-gold-400 pb-1 flex items-center gap-1.5";
+                btnOpen.className = "text-xs font-semibold text-slate-400 hover:text-slate-200 pb-1 flex items-center gap-1.5";
+
+                if (simState.tradeHistory.length === 0) {
+                    tbody.innerHTML = '';
+                    notice.classList.remove('hidden');
+                    notice.textContent = "No completed trades in this session yet.";
+                    return;
+                }
+
+                notice.classList.add('hidden');
+                tbody.innerHTML = '';
+                simState.tradeHistory.forEach(tr => {
+                    const row = document.createElement('tr');
+                    row.className = "hover:bg-obsidian-850/60";
+                    row.innerHTML = `
+                        <td class="py-2 font-bold text-slate-200">${tr.symbol}</td>
+                        <td class="py-2 font-mono text-[10px] text-slate-400">${tr.side.toUpperCase()}</td>
+                        <td class="py-2 text-slate-300">${tr.qty}</td>
+                        <td class="py-2 text-slate-400">$${tr.entryPrice.toFixed(2)}</td>
+                        <td class="py-2 text-slate-200">$${tr.exitPrice.toFixed(2)}</td>
+                        <td class="py-2 font-bold ${tr.pnl >= 0 ? 'text-bull-400' : 'text-bear-400'}">
+                            ${tr.pnl >= 0 ? '+' : ''}$${tr.pnl.toFixed(2)}
+                        </td>
+                        <td class="py-2 text-right text-[10px] text-slate-500">${tr.time}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+        }
+
+        async function submitAiQuery() {
+            const input = document.getElementById('aiQueryInput');
+            const query = input.value.trim();
+            if (!query) return;
+
+            input.value = '';
+            appendAiChatMessage('user', query);
+
+            const sendBtn = document.getElementById('btnSendAi');
+            sendBtn.disabled = true;
+
+            const chatContainer = document.getElementById('aiCoachChatHistory');
+            const thinkingEl = document.createElement('div');
+            thinkingEl.id = 'aiThinkingBubble';
+            thinkingEl.className = "p-2 rounded-lg bg-obsidian-850 border border-obsidian-750 text-slate-400 text-xs italic flex items-center gap-2";
+            thinkingEl.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-gold-400"></i> Athena is auditing chart patterns & risk...`;
+            chatContainer.appendChild(thinkingEl);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            const asset = ASSETS.find(a => a.symbol === simState.activeSymbol);
+            const candles = simState.candleHistory[asset.symbol];
+            const currentPrice = candles[candles.length - 1].close;
+
+            const systemPrompt = `You are Athena, an elite institutional trading mentor and technical analyst inside the Trading Gym simulator.
+Provide direct, concise, high-signal trading feedback for ${asset.name} (${asset.symbol}) at $${currentPrice.toFixed(2)}.
+Address chart patterns, support/resistance, risk-to-reward ratios, and emotional discipline. Limit response to 2–3 sharp paragraphs.`;
+
+            try {
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: query }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] }
+                };
+
+                const res = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                removeThinkingBubble();
+                if (aiText) {
+                    appendAiChatMessage('athena', aiText);
+                } else {
+                    throw new Error("Empty response");
+                }
+            } catch (err) {
+                removeThinkingBubble();
+                // Heuristic offline response
+                const fallback = generateHeuristicAiAdvice(query, asset, currentPrice);
+                appendAiChatMessage('athena', fallback);
+            } finally {
+                sendBtn.disabled = false;
+            }
+        }
+
+        function askCoachPrompt(txt) {
+            document.getElementById('aiQueryInput').value = txt;
+            submitAiQuery();
+        }
+
+        function requestAiStrategyAudit() {
+            const asset = ASSETS.find(a => a.symbol === simState.activeSymbol);
+            askCoachPrompt(`Please run a full risk and technical audit on my current setup for ${asset.symbol}.`);
+        }
+
+        function generateHeuristicAiAdvice(query, asset, price) {
+            const lower = query.toLowerCase();
+            if (lower.includes('breakout') || lower.includes('technical')) {
+                return `**Technical Setup on ${asset.symbol} ($${price.toFixed(2)}):**
+Price is holding above the 20-period Moving Average. If trading a breakout, wait for a high-volume confirmation bar. Set your stop-loss just below the prior swing low at $${(price * 0.985).toFixed(2)} to minimize false breakout risk.`;
+            } else if (lower.includes('risk') || lower.includes('stop') || lower.includes('sizing')) {
+                return `**Capital Preservation Rule:**
+With an equity base of $${simState.equity.toLocaleString()}, your maximum 1.5% dollar risk is **$${(simState.equity * 0.015).toFixed(2)}**. Ensure your position size combined with your stop distance never exceeds this dollar threshold. Always target a minimum 2:1 Reward-to-Risk ratio.`;
+            } else {
+                return `**Execution Insight for ${asset.symbol}:**
+Market conditions are currently fluid. Avoid chasing extended green candles. Formulate a thesis before hitting Buy or Sell, determine your invalidation level first, and stick strictly to your bracket plan!`;
+            }
+        }
+
+        function appendAiChatMessage(sender, text) {
+            const container = document.getElementById('aiCoachChatHistory');
+            const msg = document.createElement('div');
+            if (sender === 'user') {
+                msg.className = "p-2.5 rounded-lg bg-obsidian-800 border border-obsidian-700 text-slate-100 text-[11px] ml-4 text-right";
+                msg.innerHTML = `<span class="text-gold-400 font-bold block text-[10px] mb-0.5">Trader</span>${text}`;
+            } else {
+                msg.className = "p-2.5 rounded-lg bg-obsidian-900 border border-obsidian-750 text-slate-300 text-[11px] mr-2 leading-relaxed";
+                msg.innerHTML = `<span class="text-gold-400 font-bold block text-[10px] mb-0.5 flex items-center gap-1"><i class="fa-solid fa-robot"></i> Athena</span>${text.replace(/\n/g, '<br>')}`;
+            }
+            container.appendChild(msg);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function removeThinkingBubble() {
+            const el = document.getElementById('aiThinkingBubble');
+            if (el) el.remove();
+        }
+
+        function resetAccountModal() {
+            document.getElementById('resetModal').classList.remove('hidden');
+        }
+
+        function closeResetModal() {
+            document.getElementById('resetModal').classList.add('hidden');
+        }
+
+        function confirmResetAccount() {
+            simState.cash = 100000.00;
+            simState.equity = 100000.00;
+            simState.positions = [];
+            simState.tradeHistory = [];
+            closeResetModal();
+            updatePortfolioMetrics();
+            drawChart();
+            showToast("Account reset to $100,000.00 Paper Capital", "fa-arrows-rotate");
+        }
+
+        let toastTimer = null;
+        function showToast(title, icon = 'fa-check') {
+            const toast = document.getElementById('tradeToast');
+            document.getElementById('toastTitle').textContent = title;
+            document.getElementById('toastIcon').innerHTML = `<i class="fa-solid ${icon}"></i>`;
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(hideToast, 3500);
+        }
+
+        function hideToast() {
+            const toast = document.getElementById('tradeToast');
+            toast.classList.remove('translate-y-0', 'opacity-100');
+            toast.classList.add('translate-y-20', 'opacity-0');
+        }
+    </script>
+</body>
+</html>
